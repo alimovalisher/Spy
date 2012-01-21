@@ -1,12 +1,22 @@
 #define SERVO_PIN  8
 #define SENSOR_PIN A0
+#define LEFT_MOTOR_PIN1 6
+#define LEFT_MOTOR_PIN2 5
+#define RIGHT_MOTOR_PIN1 7
+#define RIGHT_MOTOR_PIN2 4
+#define SPEED 255
 
 #include <LiquidCrystal.h>
 #include <Servo.h> 
 
+boolean LCD_ON  = false;
+
 // Инициализируем объект-экран, передаём использованные 
 // RS, E, DB5, DB6, DB7, DB8
-LiquidCrystal lcd(4, 5, 10, 11, 12, 13);
+if(){
+  LiquidCrystal lcd(4, 5, 10, 11, 12, 13);
+}
+
 byte displayLinesCount = 4;
 byte displayCurrentLine = 0;
 byte dislpayMaxColumns = 20;
@@ -37,6 +47,7 @@ void setup()
     servo.write(180);
     delay(5000);
     servo.write(servoPosition);
+    delay(2000);
     displayMessage("Servo is ready");
     
     
