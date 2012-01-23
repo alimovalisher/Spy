@@ -50,57 +50,32 @@ void setup()
 void loop() 
 {
 
-  String command;
-  char symbol;
-  while(Serial.available() > 0){
-    symbol = (char)Serial.read();
+  delay(1000);
+  int value = analogRead(SENSOR_PIN);
 
-    if((int)symbol == 10){
-      moveCursorToNextLine();
-    }
-    else{
-      command.concat(symbol);
-    }
-  }
+  int distance = (int)getDistance(value);
+
+  char* temp;
+
+  lcd.print("Distance=");
+  lcd.print(distance);
+  moveCursorToNextLine();
+
+  Serial.print("Distance=");
+  Serial.println(distance);
 
 
-  if(command.length() > 0){
-    Serial.println(command);
+  int servoPos = getNextServoPosition();
 
-    if(command.equals("d")){
-      int value = analogRead(SENSOR_PIN);
+  lcd.print("Servo pos=");
+  lcd.print(servoPos);
+  moveCursorToNextLine();
 
-      int distance = (int)getDistance(value);
+  Serial.print("Servo pos =");
+  Serial.println(servoPos);
 
-      char* temp;
-
-      lcd.print("Distance=");
-      lcd.print(distance);
-      moveCursorToNextLine();
-
-      Serial.print("Distance=");
-      Serial.println(distance);
-
-    }
-    else if(command.equals("t")){
-
-      int servoPos = getNextServoPosition();
-
-      lcd.print("Servo pos=");
-      lcd.print(servoPos);
-      moveCursorToNextLine();
-
-      Serial.print("Servo pos =");
-      Serial.println(servoPos);
-
-      servo.write(servoPos);
-    }
-    else{
-      displayMessage("Unknowm command");
-      Serial.println("Unknown command");
-    }
-  }
-
+  servo.write(servoPos);
+  Serial.println("---------------------");
   Serial.flush();
 
 
@@ -194,6 +169,7 @@ float getDistance(int value)
 
   return distance;
 }
+
 
 
 
