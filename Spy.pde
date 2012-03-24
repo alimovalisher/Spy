@@ -1,92 +1,152 @@
-#define SERVO_PIN  3
-#define SENSOR_PIN A0
-#define LEFT_MOTOR_PIN1 6
-#define LEFT_MOTOR_PIN2 5
-#define RIGHT_MOTOR_PIN1 7
-#define RIGHT_MOTOR_PIN2 4
-#define SPEED 255
-#define OUTPUT_ERROR  1
-#define OUTPUT_SUCCESS  0
+#include "URMSerial.h"
+#include <Servo.h>
 
-#include <LiquidCrystal.h>
-#include <Servo.h> 
+// The measurement we're taking
+#define DISTANCE        1
+#define TEMPERATURE     2
+#define ERROR           3
+#define NOTREADY        4
+#define TIMEOUT         5
 
-boolean LCD_ON  = false;
+// Servo
+#define SERVO_LEFT_PIN  8
+#define SERVO_RIGHT_PIN 9
 
-// Инициализируем объект-экран, передаём использованные 
-// RS, E, DB5, DB6, DB7, DB8
+// URM
+#define URM_LEFT_TXD_PIN  10
+#define URM_LEFT_RXD_PIN  11
+#define URM_RIGHT_TXD_PIN 12
+#define URM_RIGHT_RXD_PIN 13
 
-LiquidCrystal lcd(8, 9, 10, 11, 12, 13);
+Servo servoLeft;
+Servo servoRight;
+URMSerial urmLeft;
+URMSerial urmRight;
 
-byte displayLinesCount = 4;
-byte displayCurrentLine = 0;
-byte dislpayMaxColumns = 20;
 
-Servo servo;
-int servoPosition = 90;
-boolean servoDirection = true; // false - left | true - righ
+int servoLeftPosition;
+int servoRightPosition;
+int servoParammeter = 90;
 
-void setup() 
+void setup()
 {
-  lcd.begin(20, 4);
-
-  lcd.home();
-  lcd.noAutoscroll();
-  lcd.cursor();
-
-  displayMessage("Initialization");
-
-  displayMessage("Prepare serial");
   Serial.begin(9600);
-  displayMessage("Serial is ready");
-
-  //displayMessage("Initialize servo");
-  //servo.attach(SERVO_PIN);
-  //servo.write(0);
-  //delay(2000);
-  //servo.write(180);
-  //delay(2000);
-  //servo.write(servoPosition);
-  //displayMessage("Servo is ready");
-
-  displayMessage("Starting");  
-  //delay(5000);    
+  servoLeft.attach(SERVO_LEFT_PIN);
+  servoRight.attach(SERVO_RIGHT_PIN);
+  servoLeft.write(0);
+  servoRight.write(0);
+  delay(2500);
+  servoLeft.write(90);
+  servoRight.write(90);
+  delay(2500);
+  servoLeft.write(180);
+  servoRight.write(180);
+    delay(2500);
+  servoLeft.write(90);
+  servoRight.write(90);
+                    // Sets the baud rate to 9600
+  urmLeft.begin(URM_LEFT_TXD_PIN, URM_LEFT_RXD_PIN, 9600);
+  urmRight.begin(URM_RIGHT_TXD_PIN, URM_RIGHT_RXD_PIN, 9600);
 }
-
-
-
-
-void loop() 
-{
   
-    executeCommand();
+void loop()
+{
+  String command;
+  // Serial.flush();
+  command = getCommand();
 
-    delay(100);
-
+  if(command.length()){
+    executeCommand(command);
+    Serial.flush();
+  }
+  //
+  Serial.flush();
+  
+  delay(100);
 }
 
-String executeCommand()
+String getCommand()
 {
   String temp;
   String result;
   char symbol;
+  boolean isParammeters = false;
+  
+  String param;
   
   while(Serial.available() > 0){
     symbol = (char)Serial.read();
-    lcd.print(symbol);
+    
     if((int)symbol == 10){
-      displayMessage(temp);
-      runCommand(temp);
       break;
+    }else if((int)symbol == 61){
+      isParammeters = true;
     }else{
-        //lcd.print(symbol);
+      if(isParammeters == false){
         temp.concat(symbol);
+      }else{
+        param.concat(symbol);
+      }
+        
     }
   }
   
-  Serial.flush();
+  //Serial.println(param);
+  if(param.length() > 0){
+    int capacity = 1;
+    
+    char chr;
+    int num;
+    servoParammeter = 0;
+    int index;
+    
+    for(int i = 0; i < param.length(); i++){
+      chr = param.charAt(i);
+      num = (char)chr - 48 ;
+      
+      index= param.length() - i;
+      
+      for(int j = i; j<param.length(); j++){
+          capacity = capacity * 10;
+      }
+      
+      capacity = capacity/10;
+      servoParammeter += num * capacity;
+      capacity = 1;
+    }
   
-  return result;
+  }
+
+  
+
+  return temp;
+}
+
+void executeCommand(String command)
+{
+    String result;
+    
+    if(command == "getDistanceLeft"){
+       result = getMeasurement(urmLeft);
+       output(result, false);
+    }else if(command == "getDistanceRight"){
+       result = getMeasurement(urmRight);
+       output(result, false);
+    }else if(command == "turnServoLeft"){
+      servoLeftPosition = servoParammeter;
+      servoLeft.write(servoLeftPosition);
+      output("OK", false);
+    }else if(command == "turnServoRight"){
+      servoRightPosition = servoParammeter;
+      servoRight.write(servoRightPosition);
+      output("OK", false);
+    }else{
+      output("Command not found", true);
+    }
+    
+    
+    Serial.flush();
+
 }
 
 void output(String result, boolean error)
@@ -102,145 +162,35 @@ void output(String result, boolean error)
   }
   
   Serial.println(result);
-
-}
-
-void runCommand(String command)
-{
-    String result;
-    if(command == "getDistance"){
-       result = analogRead(SENSOR_PIN);
-       output(result, false);
-    }else{
-      output("Command not found", true);
-    }
-    
-    Serial.flush();
-    //return result;
-}
-
-void execute()
-{
-   delay(1000);
-  int value = analogRead(SENSOR_PIN);
-
-  int distance = (int)getDistance(value);
-
-  char* temp;
-
-  lcd.print("Distance=");
-  lcd.print(distance);
-  moveCursorToNextLine();
-
-  Serial.print("Distance=");
-  Serial.println(distance);
-
-
-  int servoPos = getNextServoPosition();
-
-  lcd.print("Servo pos=");
-  lcd.print(servoPos);
-  moveCursorToNextLine();
-
-  Serial.print("Servo pos =");
-  Serial.println(servoPos);
-
-  servo.write(servoPos);
-  Serial.println("---------------------");
-  Serial.flush();
 }
 
 
 
-
-
-int getNextServoPosition()
+int getMeasurement(URMSerial urm)
 {
-  if(servoPosition >= 180){
-    servoDirection = false;
-  }
-  else if(servoPosition <= 0){
-    servoDirection = true;
+  int value = 0; // This value will be populated
+
+  // Request a distance reading from the URM37
+  switch(urm.requestMeasurementOrTimeout(DISTANCE, value)) // Find out the type of request
+  {
+  case DISTANCE: // Double check the reading we recieve is of DISTANCE type
+    return value;
+    break;
+  case TEMPERATURE:
+    return value;
+    break;
+  case ERROR:
+  
+    Serial.println("Error");
+    break;
+  case NOTREADY:
+    Serial.println("Not Ready");
+    break;
+  case TIMEOUT:
+    Serial.println("Timeout");
+    break;
   } 
 
-  Serial.print("Servo");
-  Serial.println(servoPosition);
-
-  if(servoDirection){
-    servoPosition +=30;
-  }
-  else{
-    servoPosition -= 30;
-  }
-
-  return servoPosition;
+  return -1;
+  
 }
-
-
-
-void displayMessage(const char* str)
-{
-  String text;
-  text.concat(str);
-
-  displayMessage(text);
-}
-
-void displayMessage(String text)
-{
-
-  byte symbols = 0;
-  byte currentLine = 0;
-
-  for(int i = 0; i < text.length(); i++){
-    if(symbols >= dislpayMaxColumns ){
-      moveCursorToNextLine();
-      symbols = 0;
-    }
-    lcd.print(text.charAt(i));
-    symbols++;
-
-  }
-
-  if(symbols > 0){
-    moveCursorToNextLine();
-  }
-}
-
-
-byte getCurrentLine()
-{
-  displayCurrentLine++;
-  if(displayCurrentLine >= displayLinesCount){
-    displayCurrentLine = 0;
-  }
-  return displayCurrentLine;
-}
-
-void moveCursorToNextLine()
-{
-  byte nextLine = getCurrentLine();
-  if(nextLine == 0){
-    lcd.clear();
-  }
-  lcd.setCursor(0, nextLine);
-}
-
-float getDistance(int value)
-{
-  float vcc = 0.004882812 * value;
-  float a = 0.008271;
-  float b = 939.6;
-  float c = -3.398;
-  float d = 17.339;
-
-  float distance =  (a + b*vcc)/(1+c*vcc+d*vcc*vcc);
-
-  return distance;
-}
-
-
-
-
-
-
